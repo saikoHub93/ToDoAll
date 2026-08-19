@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gestor de Vida y Finanzas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        /* Category Colors */
+        .cat-trabajo { border-left-color: #3b82f6; }
+        .cat-casa { border-left-color: #22c55e; }
+        .cat-eventos { border-left-color: #a855f7; }
+        .cat-pago { border-left-color: #ef4444; }
+
+        .bg-cat-trabajo { background-color: #3b82f6; }
+        .bg-cat-casa { background-color: #22c55e; }
+        .bg-cat-eventos { background-color: #a855f7; }
+        .bg-cat-pago { background-color: #ef4444; }
+
+        .text-cat-trabajo { color: #3b82f6; }
+        .text-cat-casa { color: #22c55e; }
+        .text-cat-eventos { color: #a855f7; }
+        .text-cat-pago { color: #ef4444; }
+
+        /* Animations */
+        @keyframes slideIn {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-in {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        /* Calendar specific styles */
+        .calendar-day.has-task::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background-color: #3b82f6; /* Default task color */
+        }
+        .calendar-day.has-payment::after {
+            background-color: #ef4444; /* Payment color */
+        }
+        .calendar-day.has-both::after {
+            background: linear-gradient(90deg, #3b82f6 50%, #ef4444 50%);
+            width: 6px;
+            height: 6px;
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden">
+
+    <!-- App Header -->
+    <header class="bg-white shadow-sm z-10 sticky top-0">
+        <div class="max-w-md mx-auto w-full px-4 py-3 flex justify-between items-center">
+            <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
+                <i class="fa-solid fa-layer-group mr-2 text-blue-600"></i>Gestor Vital
+            </h1>
+            <div class="flex items-center gap-3">
+                <div id="user-status" class="text-xs text-gray-500 font-medium">
+                    Conectando...
+                </div>
+                <button id="btn-sync" class="text-gray-400 hover:text-blue-500 transition-colors" title="Forzar Sincronización">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto w-full max-w-md mx-auto pb-24 relative" id="main-content">
+        
+        <!-- Tab Navigation -->
+        <div class="flex justify-around bg-white border-b border-gray-200 sticky top-0 z-20">
+            <button onclick="switchTab('tasks')" id="tab-tasks" class="flex-1 py-3 text-center text-sm font-semibold text-blue-600 border-b-2 border-blue-600 transition-colors">
+                <i class="fa-solid fa-list-check block mb-1 text-lg"></i> Tareas
+            </button>
+            <button onclick="switchTab('finance')" id="tab-finance" class="flex-1 py-3 text-center text-sm font-semibold text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition-colors">
+                <i class="fa-solid fa-wallet block mb-1 text-lg"></i> Finanzas
+            </button>
+            <button onclick="switchTab('calendar')" id="tab-calendar" class="flex-1 py-3 text-center text-sm font-semibold text-gray-500 border-b-2 border-transparent hover:text-gray-700 transition-colors">
+                <i class="fa-regular fa-calendar block mb-1 text-lg"></i> Calendario
+            </button>
+        </div>
+
+        <!-- TASKS SECTION -->
+        <section id="section-tasks" class="p-4 block animate-slide-in">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-bold text-gray-800">Mis Tareas</h2>
+                <div class="flex gap-2">
+                    <span class="w-3 h-3 rounded-full bg-blue-500" title="Trabajo"></span>
+                    <span class="w-3 h-3 rounded-full bg-green-500" title="Casa"></span>
+                    <span class="w-3 h-3 rounded-full bg-purple-500" title="Eventos"></span>
+                </div>
+            </div>
+
+            <!-- Task List Container -->
+            <div id="task-list" class="space-y-3">
+                <!-- Tasks will be injected here -->
+                <div class="text-center text-gray-400 py-8 italic text-sm">Cargando tareas...</div>
+            </div>
+        </section>
+
+        <!-- FINANCE SECTION -->
+        <section id="section-finance" class="p-4 hidden animate-slide-in">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">Control Financiero Mensual</h2>
+            
+            <!-- Dashboard Summary -->
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6 grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Total Pendiente</p>
+                    <p class="text-2xl font-bold text-red-500" id="finance-pending">$0.00</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Total Pagado</p>
+                    <p class="text-2xl font-bold text-green-500" id="finance-paid">$0.00</p>
+                </div>
+                <div class="col-span-2 pt-2 border-t border-gray-100 mt-2">
+                    <p class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Gasto Total del Mes</p>
+                    <p class="text-xl font-bold text-gray-800" id="finance-total">$0.00</p>
+                </div>
+            </div>
+
+            <!-- Payments List -->
+            <h3 class="text-md font-semibold text-gray-700 mb-3 border-b pb-2">Servicios y Pagos</h3>
+            <div id="payment-list" class="space-y-3">
+                <!-- Payments will be injected here -->
+                <div class="text-center text-gray-400 py-8 italic text-sm">Cargando pagos...</div>
+            </div>
+        </section>
+
+        <!-- CALENDAR SECTION -->
+        <section id="section-calendar" class="p-4 hidden animate-slide-in">
+            <h2 class="text-lg font-bold text-gray-800 mb-4">Calendario</h2>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="changeMonth(-1)" class="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"><i class="fa-solid fa-chevron-left"></i></button>
+                    <h3 id="calendar-month-year" class="font-bold text-gray-800 capitalize">Octubre 2026</h3>
+                    <button onclick="changeMonth(1)" class="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+
+                <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-gray-500 mb-2">
+                    <div>Dom</div><div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div>
+                </div>
+                
+                <div id="calendar-grid" class="grid grid-cols-7 gap-1">
+                    <!-- Calendar days injected here -->
+                </div>
+
+                <!-- Legend -->
+                <div class="mt-4 flex flex-wrap gap-3 justify-center text-xs text-gray-600">
+                    <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Tarea</div>
+                    <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-red-500"></span> Pago</div>
+                    <div class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-red-500"></span> Ambos</div>
+                </div>
+            </div>
+            
+            <!-- Day Details (appears when clicking a day) -->
+            <div id="day-details" class="mt-6 hidden">
+                <h3 id="day-details-title" class="font-bold text-gray-800 mb-2 border-b pb-1"></h3>
+                <div id="day-details-content" class="space-y-2"></div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Floating Action Buttons -->
+    <div class="fixed bottom-6 right-4 flex flex-col gap-3 z-30">
+        <!-- AI Magic Button -->
+        <button onclick="openAIModal()" class="w-14 h-14 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full shadow-lg text-white flex items-center justify-center text-2xl hover:scale-105 transition-transform animate-pulse" style="animation-duration: 3s;" title="Asistente Mágico (IA)">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+        </button>
+        <!-- Add Manual Button -->
+        <button onclick="openAddModal()" class="w-14 h-14 bg-blue-600 rounded-full shadow-lg text-white flex items-center justify-center text-2xl hover:scale-105 transition-transform shadow-blue-500/50" title="Agregar Manual">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+    </div>
+
+    <!-- ADD/EDIT MODAL (Manual) -->
+    <div id="modal-add" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl p-5 sm:m-4 transform transition-transform translate-y-full sm:translate-y-0 duration-300 shadow-2xl" id="modal-add-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800" id="modal-add-title">Nueva Entrada</h3>
+                <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            
+            <form id="form-add" onsubmit="handleFormSubmit(event)">
+                <input type="hidden" id="entry-id" value="">
+                
+                <!-- Type Toggle -->
+                <div class="flex bg-gray-100 p-1 rounded-lg mb-4">
+                    <button type="button" onclick="setEntryType('task')" id="btn-type-task" class="flex-1 py-1.5 rounded-md text-sm font-semibold shadow-sm bg-white text-blue-600 transition-all">Tarea</button>
+                    <button type="button" onclick="setEntryType('payment')" id="btn-type-payment" class="flex-1 py-1.5 rounded-md text-sm font-semibold text-gray-500 transition-all">Pago/Servicio</button>
+                </div>
+                <input type="hidden" id="entry-type" value="task">
+
+                <!-- Title/Description -->
+                <div class="mb-3">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1" id="label-title">¿Qué hay que hacer?</label>
+                    <input type="text" id="entry-title" required class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm" placeholder="Ej. Comprar despensa">
+                </div>
+
+                <!-- Fields for Task -->
+                <div id="fields-task" class="mb-3">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Categoría</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="task-category" value="trabajo" checked class="peer sr-only">
+                            <div class="text-center py-2 border rounded-lg peer-checked:bg-blue-50 peer-checked:border-blue-500 peer-checked:text-blue-700 text-sm transition-colors"><i class="fa-solid fa-briefcase text-blue-500 mb-1 block"></i>Trabajo</div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="task-category" value="casa" class="peer sr-only">
+                            <div class="text-center py-2 border rounded-lg peer-checked:bg-green-50 peer-checked:border-green-500 peer-checked:text-green-700 text-sm transition-colors"><i class="fa-solid fa-house text-green-500 mb-1 block"></i>Casa</div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="task-category" value="eventos" class="peer sr-only">
+                            <div class="text-center py-2 border rounded-lg peer-checked:bg-purple-50 peer-checked:border-purple-500 peer-checked:text-purple-700 text-sm transition-colors"><i class="fa-solid fa-calendar-star text-purple-500 mb-1 block"></i>Eventos</div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Fields for Payment -->
+                <div id="fields-payment" class="mb-3 hidden">
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Tipo de Servicio</label>
+                            <select id="payment-category" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm bg-white">
+                                <option value="tarjeta">Tarjeta de Crédito</option>
+                                <option value="renta">Renta</option>
+                                <option value="luz">Luz (CFE)</option>
+                                <option value="agua">Agua</option>
+                                <option value="internet">Internet</option>
+                                <option value="streaming">Streaming</option>
+                                <option value="celular">Celular</option>
+                                <option value="otro">Otro</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Cantidad ($)</label>
+                            <input type="number" step="0.01" id="payment-amount" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 text-sm" placeholder="0.00">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Common Fields (Date & Notification) -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Fecha (Opcional)</label>
+                        <input type="date" id="entry-date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 mb-1">Notificación</label>
+                        <select id="entry-notification" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white">
+                            <option value="none">Sin aviso</option>
+                            <option value="0">El mismo día</option>
+                            <option value="1">1 día antes</option>
+                            <option value="3">3 días antes</option>
+                            <option value="7">1 semana antes</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex gap-3 pt-2 border-t mt-2">
+                    <button type="button" id="btn-delete" onclick="deleteCurrentEntry()" class="hidden px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                    <button type="button" onclick="closeAddModal()" class="flex-1 px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancelar</button>
+                    <button type="submit" class="flex-1 px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors shadow-md">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- AI MAGIC MODAL -->
+    <div id="modal-ai" class="fixed inset-0 bg-gray-900/70 backdrop-blur-sm z-50 hidden flex items-end sm:items-center justify-center">
+        <div class="bg-gradient-to-br from-indigo-50 to-purple-50 w-full max-w-md sm:rounded-2xl rounded-t-2xl p-5 sm:m-4 transform transition-transform translate-y-full sm:translate-y-0 duration-300 shadow-2xl border border-purple-100" id="modal-ai-content">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2 text-purple-700">
+                    <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+                    <h3 class="text-xl font-bold">Asistente Mágico</h3>
+                </div>
+                <button onclick="closeAIModal()" class="text-gray-400 hover:text-gray-600 p-1"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            
+            <p class="text-sm text-gray-600 mb-4 leading-relaxed">
+                Escribe en lenguaje natural lo que necesitas recordar y la IA lo organizará por ti. <br>
+                <span class="text-xs italic text-gray-500">Ej: "Recordar pagar 500 de luz este viernes" o "Tengo junta de trabajo mañana a las 10am"</span>
+            </p>
+
+            <div class="mb-4 relative">
+                <textarea id="ai-prompt" rows="3" class="w-full px-4 py-3 border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm resize-none bg-white/80 backdrop-blur-sm shadow-inner" placeholder="Escribe aquí tu tarea o pago..."></textarea>
+                <!-- Opcional: Botón de micrófono visual (funcionalidad requeriría Web Speech API) -->
+                <button class="absolute bottom-3 right-3 text-gray-400 hover:text-purple-600 transition-colors" title="Dictado por voz (Próximamente)">
+                    <i class="fa-solid fa-microphone"></i>
+                </button>
+            </div>
+
+            <div id="ai-status" class="hidden mb-4 p-3 rounded-lg text-sm flex items-center gap-2">
+                <!-- Status messages injected here -->
+            </div>
+
+            <div class="flex gap-3">
+                <button type="button" onclick="closeAIModal()" class="flex-1 px-4 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">Cancelar</button>
+                <button type="button" onclick="processAIPrompt()" id="btn-process-ai" class="flex-[2] px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-colors shadow-md shadow-purple-500/30 flex justify-center items-center gap-2">
+                    <span>Procesar Mágicamente</span>
+                    <i class="fa-solid fa-sparkles"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300 opacity-0 pointer-events-none flex items-center gap-2 text-sm">
+        <i id="toast-icon" class="fa-solid fa-circle-info"></i>
+        <span id="toast-msg">Mensaje</span>
+    </div>
+
+    <!-- FIREBASE AND APP LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global State
+        let appState = {
+            tasks: [],
+            payments: [],
+            currentMonth: new Date().getMonth(),
+            currentYear: new Date().getFullYear(),
+            userId: null
+        };
+
+        // Firebase Initialization
+        let db, auth;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'gestor-vida-app';
+        let unsubscribeTasks = null;
+        let unsubscribePayments = null;
+
+        async function initFirebase() {
+            try {
+                const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+                
+                if (!firebaseConfig) {
+                    showToast("Error: Configuración de base de datos no encontrada.", "error");
+                    document.getElementById('user-status').innerHTML = '<span class="text-red-500"><i class="fa-solid fa-circle-exclamation"></i> Sin conexión</span>';
+                    return;
+                }
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Setup Auth listener BEFORE attempting sign in
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        appState.userId = user.uid;
+                        document.getElementById('user-status').innerHTML = '<span class="text-green-500"><i class="fa-solid fa-circle-check"></i> Sincronizado</span>';
+                        setupDataListeners();
+                    } else {
+                        appState.userId = null;
+                        document.getElementById('user-status').innerHTML = '<span class="text-red-500"><i class="fa-solid fa-circle-xmark"></i> Desconectado</span>';
+                    }
+                });
+
+                // Rule 3: Auth Before Queries
+                const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                if (token) {
+                    await signInWithCustomToken(auth, token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+            } catch (error) {
+                console.error("Firebase init error:", error);
+                showToast("Error conectando al servidor", "error");
+            }
+        }
+
+        // Fetch and listen to data
+        function setupDataListeners() {
+            if (!appState.userId) return;
+
+            // Clear previous listeners
+            if (unsubscribeTasks) unsubscribeTasks();
+            if (unsubscribePayments) unsubscribePayments();
+
+            // Paths according to Rule 1
+            const tasksRef = collection(db, 'artifacts', appId, 'users', appState.userId, 'tasks');
+            const paymentsRef = collection(db, 'artifacts', appId, 'users', appState.userId, 'payments');
+
+            // Listen Tasks
+            unsubscribeTasks = onSnapshot(query(tasksRef), 
+                (snapshot) => {
+                    appState.tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderTasks();
+                    renderCalendar(); // Tasks affect calendar
+                },
+                (error) => {
+                    console.error("Error listening tasks:", error);
+                    showToast("Error sincronizando tareas", "error");
+                }
+            );
+
+            // Listen Payments
+            unsubscribePayments = onSnapshot(query(paymentsRef), 
+                (snapshot) => {
+                    appState.payments = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    renderFinance();
+                    renderCalendar(); // Payments affect calendar
+                },
+                (error) => {
+                    console.error("Error listening payments:", error);
+                    showToast("Error sincronizando finanzas", "error");
+                }
+            );
+        }
+
+        // Rendering Functions
+        function renderTasks() {
+            const listEl = document.getElementById('task-list');
+            listEl.innerHTML = '';
+
+            // Sort: Incomplete first, then by date (if exists), then by creation
+            const sortedTasks = [...appState.tasks].sort((a, b) => {
+                if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                if (a.date && b.date) return new Date(a.date) - new Date(b.date);
+                if (a.date) return -1;
+                if (b.date) return 1;
+                return (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0);
+            });
+
+            if (sortedTasks.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-10 px-4 bg-white rounded-xl border border-dashed border-gray-300">
+                        <i class="fa-regular fa-face-smile text-4xl text-gray-300 mb-3 block"></i>
+                        <p class="text-gray-500 font-medium">¡Todo al día!</p>
+                        <p class="text-xs text-gray-400 mt-1">Usa el botón + o la magia de IA para agregar tareas.</p>
+                    </div>`;
+                return;
+            }
+
+            sortedTasks.forEach(task => {
+                const categoryClasses = {
+                    'trabajo': 'border-l-4 cat-trabajo',
+                    'casa': 'border-l-4 cat-casa',
+                    'eventos': 'border-l-4 cat-eventos'
+                };
+                const bgClass = task.completed ? 'bg-gray-50' : 'bg-white';
+                const textClass = task.completed ? 'text-gray-400 line-through' : 'text-gray-800';
+                const dateStr = task.date ? formatDateString(task.date) : '';
+                
+                const notifIcon = task.notification !== 'none' ? '<i class="fa-regular fa-bell text-xs ml-2 text-gray-400" title="Notificación activada"></i>' : '';
+
+                const el = document.createElement('div');
+                el.className = `p-3 ${bgClass} rounded-lg shadow-sm border border-gray-100 flex items-center justify-between mb-2 transition-all hover:shadow-md ${categoryClasses[task.category] || 'border-l-4 border-gray-400'}`;
+                
+                el.innerHTML = `
+                    <div class="flex items-center gap-3 flex-1 overflow-hidden" onclick="toggleTaskCompletion('${task.id}', ${task.completed})">
+                        <button class="w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${task.completed ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300 hover:border-blue-400 text-transparent'}">
+                            <i class="fa-solid fa-check text-xs"></i>
+                        </button>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-sm truncate ${textClass}">${task.title}</p>
+                            ${dateStr ? `<p class="text-xs text-gray-500 flex items-center mt-0.5"><i class="fa-regular fa-calendar mr-1"></i> ${dateStr} ${notifIcon}</p>` : ''}
+                        </div>
+                    </div>
+                    <button onclick="editEntry('task', '${task.id}')" class="p-2 text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                `;
+                listEl.appendChild(el);
+            });
+        }
+
+        function renderFinance() {
+            const listEl = document.getElementById('payment-list');
+            listEl.innerHTML = '';
+            
+            let totalPending = 0;
+            let totalPaid = 0;
+
+            // Filter for current month's logic (simplified: showing all, but calculating totals based on active vs completed)
+            // A more robust app would filter by month strictly, but for simplicity we keep them as active bills.
+
+            const sortedPayments = [...appState.payments].sort((a, b) => {
+                if (a.completed !== b.completed) return a.completed ? 1 : -1;
+                if (a.date && b.date) return new Date(a.date) - new Date(b.date);
+                return 0;
+            });
+
+            if (sortedPayments.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-10 px-4 bg-white rounded-xl border border-dashed border-gray-300">
+                        <i class="fa-solid fa-wallet text-4xl text-gray-300 mb-3 block"></i>
+                        <p class="text-gray-500 font-medium">Sin pagos registrados</p>
+                    </div>`;
+            }
+
+            const icons = {
+                'tarjeta': 'fa-credit-card', 'renta': 'fa-house', 'luz': 'fa-lightbulb',
+                'agua': 'fa-faucet-drip', 'internet': 'fa-wifi', 'streaming': 'fa-tv',
+                'celular': 'fa-mobile-screen', 'otro': 'fa-file-invoice-dollar'
+            };
+
+            sortedPayments.forEach(payment => {
+                const amount = parseFloat(payment.amount) || 0;
+                if (payment.completed) {
+                    totalPaid += amount;
+                } else {
+                    totalPending += amount;
+                }
+
+                const icon = icons[payment.category] || icons['otro'];
+                const bgClass = payment.completed ? 'bg-gray-50' : 'bg-white';
+                const textClass = payment.completed ? 'text-gray-400 line-through' : 'text-gray-800';
+                const dateClass = isOverdue(payment.date, payment.completed) ? 'text-red-500 font-bold' : 'text-gray-500';
+                const dateStr = payment.date ? formatDateString(payment.date) : 'Sin fecha';
+
+                const el = document.createElement('div');
+                el.className = `p-3 ${bgClass} rounded-lg shadow-sm border border-gray-100 border-l-4 cat-pago flex items-center justify-between mb-2 transition-all hover:shadow-md`;
+                
+                el.innerHTML = `
+                    <div class="flex items-center gap-3 flex-1 overflow-hidden" onclick="togglePaymentCompletion('${payment.id}', ${payment.completed})">
+                         <button class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${payment.completed ? 'bg-green-100 text-green-600' : 'bg-red-50 text-red-500 border border-red-200'}">
+                            ${payment.completed ? '<i class="fa-solid fa-check"></i>' : `<i class="fa-solid ${icon}"></i>`}
+                        </button>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-sm truncate ${textClass}">${payment.title}</p>
+                            <p class="text-xs ${dateClass} flex items-center mt-0.5">
+                                <i class="fa-regular fa-calendar mr-1"></i> Vence: ${dateStr}
+                            </p>
+                        </div>
+                        <div class="text-right mr-2">
+                            <p class="font-bold text-sm ${payment.completed ? 'text-gray-400' : 'text-gray-800'}">$${amount.toFixed(2)}</p>
+                            <p class="text-[10px] uppercase tracking-wide ${payment.completed ? 'text-green-500' : 'text-red-500'}">${payment.completed ? 'Pagado' : 'Pendiente'}</p>
+                        </div>
+                    </div>
+                    <button onclick="editEntry('payment', '${payment.id}')" class="p-2 text-gray-400 hover:text-blue-600 transition-colors flex-shrink-0 border-l border-gray-100 pl-3">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                `;
+                listEl.appendChild(el);
+            });
+
+            // Update Dashboard
+            document.getElementById('finance-pending').textContent = `$${totalPending.toFixed(2)}`;
+            document.getElementById('finance-paid').textContent = `$${totalPaid.toFixed(2)}`;
+            document.getElementById('finance-total').textContent = `$${(totalPending + totalPaid).toFixed(2)}`;
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+            
+            const monthYearEl = document.getElementById('calendar-month-year');
+            const date = new Date(appState.currentYear, appState.currentMonth, 1);
+            
+            const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+            monthYearEl.textContent = `${monthNames[appState.currentMonth]} ${appState.currentYear}`;
+
+            const firstDayIndex = date.getDay();
+            const daysInMonth = new Date(appState.currentYear, appState.currentMonth + 1, 0).getDate();
+            
+            const today = new Date();
+            const isCurrentMonth = today.getMonth() === appState.currentMonth && today.getFullYear() === appState.currentYear;
+
+            // Map data for calendar
+            const dayDataMap = {}; // { '2026-08-15': { tasks: [], payments: [] } }
+            
+            appState.tasks.forEach(t => {
+                if (t.date) {
+                    if (!dayDataMap[t.date]) dayDataMap[t.date] = { tasks: [], payments: [] };
+                    dayDataMap[t.date].tasks.push(t);
+                }
+            });
+            appState.payments.forEach(p => {
+                if (p.date) {
+                    if (!dayDataMap[p.date]) dayDataMap[p.date] = { tasks: [], payments: [] };
+                    dayDataMap[p.date].payments.push(p);
+                }
+            });
+
+            // Empty slots before 1st day
+            for (let i = 0; i < firstDayIndex; i++) {
+                const el = document.createElement('div');
+                el.className = 'p-2 text-center text-gray-300';
+                grid.appendChild(el);
+            }
+
+            // Days
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateStr = `${appState.currentYear}-${String(appState.currentMonth + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                
+                const el = document.createElement('div');
+                let classes = 'p-2 relative flex flex-col items-center justify-center h-10 w-10 mx-auto rounded-full cursor-pointer hover:bg-blue-50 transition-colors calendar-day text-sm font-medium ';
+                
+                if (isCurrentMonth && i === today.getDate()) {
+                    classes += 'bg-blue-100 text-blue-700 font-bold ring-2 ring-blue-400 ';
+                } else {
+                    classes += 'text-gray-700 ';
+                }
+
+                const dayData = dayDataMap[dateStr];
+                if (dayData) {
+                    const hasPendingTasks = dayData.tasks.some(t => !t.completed);
+                    const hasPendingPayments = dayData.payments.some(p => !p.completed);
+                    
+                    if (hasPendingTasks && hasPendingPayments) classes += 'has-both ';
+                    else if (hasPendingTasks) classes += 'has-task ';
+                    else if (hasPendingPayments) classes += 'has-payment ';
+                }
+
+                el.className = classes;
+                el.textContent = i;
+                el.onclick = () => showDayDetails(dateStr, i, monthNames[appState.currentMonth], dayData);
+                grid.appendChild(el);
+            }
+        }
+
+        // Tab Switching
+        window.switchTab = function(tabName) {
+            ['tasks', 'finance', 'calendar'].forEach(t => {
+                document.getElementById(`section-${t}`).classList.add('hidden');
+                
+                const tabBtn = document.getElementById(`tab-${t}`);
+                if (t === tabName) {
+                    tabBtn.classList.remove('text-gray-500', 'border-transparent');
+                    tabBtn.classList.add('text-blue-600', 'border-blue-600');
+                } else {
+                    tabBtn.classList.add('text-gray-500', 'border-transparent');
+                    tabBtn.classList.remove('text-blue-600', 'border-blue-600');
+                }
+            });
+            document.getElementById(`section-${tabName}`).classList.remove('hidden');
+            
+            // Re-render specifics if needed
+            if (tabName === 'calendar') renderCalendar();
+        };
+
+        window.changeMonth = function(delta) {
+            appState.currentMonth += delta;
+            if (appState.currentMonth > 11) {
+                appState.currentMonth = 0;
+                appState.currentYear++;
+            } else if (appState.currentMonth < 0) {
+                appState.currentMonth = 11;
+                appState.currentYear--;
+            }
+            renderCalendar();
+            document.getElementById('day-details').classList.add('hidden');
+        };
+
+        function showDayDetails(dateStr, day, monthName, data) {
+            const detailsDiv = document.getElementById('day-details');
+            const contentDiv = document.getElementById('day-details-content');
+            
+            document.getElementById('day-details-title').textContent = `${day} de ${monthName}`;
+            contentDiv.innerHTML = '';
+
+            if (!data || (data.tasks.length === 0 && data.payments.length === 0)) {
+                contentDiv.innerHTML = '<p class="text-sm text-gray-500 italic">No hay eventos para este día.</p>';
+            } else {
+                data.tasks.forEach(t => {
+                    contentDiv.innerHTML += `<div class="text-sm p-2 bg-blue-50 rounded border-l-2 border-blue-500 ${t.completed ? 'opacity-50 line-through' : ''}"><i class="fa-solid fa-list-check mr-2 text-blue-500"></i>${t.title}</div>`;
+                });
+                data.payments.forEach(p => {
+                    contentDiv.innerHTML += `<div class="text-sm p-2 bg-red-50 rounded border-l-2 border-red-500 ${p.completed ? 'opacity-50 line-through' : ''}"><i class="fa-solid fa-dollar-sign mr-2 text-red-500"></i>${p.title} ($${p.amount})</div>`;
+                });
+            }
+            
+            detailsDiv.classList.remove('hidden');
+            // Scroll to bottom smoothly
+            document.getElementById('main-content').scrollTo({ top: document.getElementById('main-content').scrollHeight, behavior: 'smooth' });
+        }
+
+        // Modal Functions
+        window.openAddModal = function() {
+            document.getElementById('form-add').reset();
+            document.getElementById('entry-id').value = '';
+            document.getElementById('btn-delete').classList.add('hidden');
+            setEntryType('task'); // Default
+            document.getElementById('modal-add').classList.remove('hidden');
+            document.getElementById('modal-add-content').classList.remove('translate-y-full');
+            document.getElementById('modal-add-title').textContent = 'Nueva Entrada';
+            
+            // Set default date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('entry-date').value = today;
+        };
+
+        window.closeAddModal = function() {
+            document.getElementById('modal-add-content').classList.add('translate-y-full');
+            setTimeout(() => {
+                document.getElementById('modal-add').classList.add('hidden');
+            }, 300);
+        };
+
+        window.setEntryType = function(type) {
+            document.getElementById('entry-type').value = type;
+            const btnTask = document.getElementById('btn-type-task');
+            const btnPayment = document.getElementById('btn-type-payment');
+            const fieldsTask = document.getElementById('fields-task');
+            const fieldsPayment = document.getElementById('fields-payment');
+            const labelTitle = document.getElementById('label-title');
+
+            if (type === 'task') {
+                btnTask.classList.replace('text-gray-500', 'text-blue-600');
+                btnTask.classList.add('bg-white', 'shadow-sm');
+                btnPayment.classList.replace('text-blue-600', 'text-gray-500');
+                btnPayment.classList.remove('bg-white', 'shadow-sm');
+                
+                fieldsTask.classList.remove('hidden');
+                fieldsPayment.classList.add('hidden');
+                labelTitle.textContent = '¿Qué hay que hacer?';
+            } else {
+                btnPayment.classList.replace('text-gray-500', 'text-blue-600');
+                btnPayment.classList.add('bg-white', 'shadow-sm');
+                btnTask.classList.replace('text-blue-600', 'text-gray-500');
+                btnTask.classList.remove('bg-white', 'shadow-sm');
+                
+                fieldsTask.classList.add('hidden');
+                fieldsPayment.classList.remove('hidden');
+                labelTitle.textContent = 'Descripción del pago';
+            }
+        };
+
+        window.handleFormSubmit = async function(e) {
+            e.preventDefault();
+            if (!appState.userId) {
+                showToast("Debes esperar a que se conecte el servidor.", "error");
+                return;
+            }
+
+            const id = document.getElementById('entry-id').value;
+            const type = document.getElementById('entry-type').value;
+            const title = document.getElementById('entry-title').value.trim();
+            const date = document.getElementById('entry-date').value;
+            const notification = document.getElementById('entry-notification').value;
+
+            if (!title) {
+                showToast("El título es obligatorio", "error");
+                return;
+            }
+
+            try {
+                let data = {
+                    title,
+                    date: date || null,
+                    notification,
+                    updatedAt: serverTimestamp()
+                };
+
+                if (type === 'task') {
+                    data.category = document.querySelector('input[name="task-category"]:checked').value;
+                    const colRef = collection(db, 'artifacts', appId, 'users', appState.userId, 'tasks');
+                    
+                    if (id) {
+                        await updateDoc(doc(db, 'artifacts', appId, 'users', appState.userId, 'tasks', id), data);
+                    } else {
+                        data.completed = false;
+                        data.createdAt = serverTimestamp();
+                        await addDoc(colRef, data);
+                    }
+                } else {
+                    data.category = document.getElementById('payment-category').value;
+                    data.amount = parseFloat(document.getElementById('payment-amount').value) || 0;
+                    const colRef = collection(db, 'artifacts', appId, 'users', appState.userId, 'payments');
+                    
+                    if (id) {
+                        await updateDoc(doc(db, 'artifacts', appId, 'users', appState.userId, 'payments', id), data);
+                    } else {
+                        data.completed = false;
+                        data.createdAt = serverTimestamp();
+                        await addDoc(colRef, data);
+                    }
+                }
+
+                closeAddModal();
+                showToast(id ? "Actualizado correctamente" : "Guardado correctamente", "success");
+            } catch (error) {
+                console.error("Error saving data:", error);
+                showToast("Error al guardar", "error");
+            }
+        };
+
+        window.editEntry = function(type, id) {
+            const list = type === 'task' ? appState.tasks : appState.payments;
+            const entry = list.find(e => e.id === id);
+            
+            if (!entry) return;
+
+            openAddModal();
+            setEntryType(type);
+            document.getElementById('modal-add-title').textContent = 'Editar Entrada';
+            document.getElementById('entry-id').value = id;
+            document.getElementById('entry-title').value = entry.title;
+            document.getElementById('entry-date').value = entry.date || '';
+            document.getElementById('entry-notification').value = entry.notification || 'none';
+            document.getElementById('btn-delete').classList.remove('hidden');
+
+            if (type === 'task') {
+                document.querySelector(`input[name="task-category"][value="${entry.category}"]`).checked = true;
+            } else {
+                document.getElementById('payment-category').value = entry.category || 'otro';
+                document.getElementById('payment-amount').value = entry.amount || '';
+            }
+        };
+
+        window.deleteCurrentEntry = async function() {
+            if (!appState.userId) return;
+            const id = document.getElementById('entry-id').value;
+            const type = document.getElementById('entry-type').value;
+            
+            if (!id) return;
+            
+            // Replaced alert/confirm with custom logic (direct delete for simplicity, ideally a custom modal confirm)
+            try {
+                const colName = type === 'task' ? 'tasks' : 'payments';
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', appState.userId, colName, id));
+                closeAddModal();
+                showToast("Entrada eliminada", "success");
+            } catch (error) {
+                console.error("Error deleting:", error);
+                showToast("Error al eliminar", "error");
+            }
+        };
+
+        window.toggleTaskCompletion = async function(id, currentStatus) {
+            if (!appState.userId) return;
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', appState.userId, 'tasks', id), {
+                    completed: !currentStatus
+                });
+            } catch (error) {
+                showToast("Error actualizando", "error");
+            }
+        };
+
+        window.togglePaymentCompletion = async function(id, currentStatus) {
+            if (!appState.userId) return;
+            try {
+                await updateDoc(doc(db, 'artifacts', appId, 'users', appState.userId, 'payments', id), {
+                    completed: !currentStatus
+                });
+            } catch (error) {
+                showToast("Error actualizando", "error");
+            }
+        };
+
+        // AI Modal logic
+        window.openAIModal = function() {
+            document.getElementById('ai-prompt').value = '';
+            document.getElementById('ai-status').classList.add('hidden');
+            document.getElementById('btn-process-ai').disabled = false;
+            document.getElementById('modal-ai').classList.remove('hidden');
+            document.getElementById('modal-ai-content').classList.remove('translate-y-full');
+            setTimeout(() => document.getElementById('ai-prompt').focus(), 300);
+        };
+
+        window.closeAIModal = function() {
+            document.getElementById('modal-ai-content').classList.add('translate-y-full');
+            setTimeout(() => {
+                document.getElementById('modal-ai').classList.add('hidden');
+            }, 300);
+        };
+
+        window.processAIPrompt = async function() {
+            if (!appState.userId) {
+                showToast("Esperando conexión al servidor...", "error");
+                return;
+            }
+
+            const promptText = document.getElementById('ai-prompt').value.trim();
+            if (!promptText) return;
+
+            const btn = document.getElementById('btn-process-ai');
+            const statusDiv = document.getElementById('ai-status');
+            
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Pensando...';
+            
+            statusDiv.classList.remove('hidden', 'bg-red-50', 'text-red-600', 'bg-green-50', 'text-green-600');
+            statusDiv.classList.add('bg-blue-50', 'text-blue-600');
+            statusDiv.innerHTML = '<i class="fa-solid fa-wand-sparkles fa-bounce"></i> Analizando tu solicitud con Gemini...';
+
+            try {
+                // Call Gemini API via generationConfig for JSON structure
+                const payload = {
+                    contents: [{ parts: [{ text: `Eres un asistente que clasifica tareas y pagos a partir de texto natural.
+                    Fecha actual: ${new Date().toISOString().split('T')[0]} (Usa esto como referencia para "hoy", "mañana", "el viernes", etc.)
+                    
+                    El usuario dice: "${promptText}"
+                    
+                    Devuelve UNICAMENTE un objeto JSON válido con la siguiente estructura, sin markdown, sin texto extra.
+                    Si es un pago (menciona dinero, luz, renta, pagar):
+                    {
+                      "type": "payment",
+                      "title": "Descripción corta (ej. Pagar luz)",
+                      "amount": numero_de_cantidad_o_0,
+                      "category": "tarjeta" | "renta" | "luz" | "agua" | "internet" | "streaming" | "celular" | "otro",
+                      "date": "YYYY-MM-DD" (calcula la fecha si se menciona un día, si no, null),
+                      "notification": "1" (por defecto 1 día antes)
+                    }
+                    Si es una tarea:
+                    {
+                      "type": "task",
+                      "title": "Descripción de la tarea",
+                      "category": "trabajo" | "casa" | "eventos" (dedúcelo lógicamente),
+                      "date": "YYYY-MM-DD" (calcula fecha si se menciona, si no null),
+                      "notification": "0" (por defecto el mismo día)
+                    }` }]}],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                    }
+                };
+
+                const apiKey = ""; // Canvas handles this
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates[0].content.parts[0].text) {
+                    const jsonStr = result.candidates[0].content.parts[0].text;
+                    const parsedData = JSON.parse(jsonStr);
+                    
+                    // Save to Firestore
+                    let dbData = {
+                        title: parsedData.title,
+                        category: parsedData.category,
+                        date: parsedData.date || null,
+                        notification: parsedData.notification || 'none',
+                        completed: false,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                    };
+
+                    if (parsedData.type === 'payment') {
+                        dbData.amount = parsedData.amount || 0;
+                        await addDoc(collection(db, 'artifacts', appId, 'users', appState.userId, 'payments'), dbData);
+                    } else {
+                        await addDoc(collection(db, 'artifacts', appId, 'users', appState.userId, 'tasks'), dbData);
+                    }
+
+                    statusDiv.classList.replace('bg-blue-50', 'bg-green-50');
+                    statusDiv.classList.replace('text-blue-600', 'text-green-600');
+                    statusDiv.innerHTML = '<i class="fa-solid fa-check"></i> ¡Magia hecha! Guardado correctamente.';
+                    
+                    setTimeout(() => {
+                        closeAIModal();
+                        showToast("Elemento agregado por IA", "success");
+                    }, 1500);
+
+                } else {
+                    throw new Error("No response from AI");
+                }
+
+            } catch (error) {
+                console.error("AI Error:", error);
+                statusDiv.classList.replace('bg-blue-50', 'bg-red-50');
+                statusDiv.classList.replace('text-blue-600', 'text-red-600');
+                statusDiv.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Hubo un error al entender. Intenta ser más claro.';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>Procesar Mágicamente</span><i class="fa-solid fa-sparkles"></i>';
+            }
+        };
+
+        // Helpers
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').textContent = message;
+            
+            const icon = document.getElementById('toast-icon');
+            if(type === 'success') {
+                icon.className = 'fa-solid fa-circle-check text-green-400';
+            } else if (type === 'error') {
+                icon.className = 'fa-solid fa-circle-exclamation text-red-400';
+            } else {
+                icon.className = 'fa-solid fa-circle-info text-blue-400';
+            }
+
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        function formatDateString(dateStr) {
+            if(!dateStr) return '';
+            const options = { weekday: 'short', day: 'numeric', month: 'short' };
+            // Ensure local timezone doesn't shift the day
+            const [y, m, d] = dateStr.split('-');
+            const date = new Date(y, m - 1, d);
+            return date.toLocaleDateString('es-ES', options);
+        }
+
+        function isOverdue(dateStr, isCompleted) {
+            if (!dateStr || isCompleted) return false;
+            const [y, m, d] = dateStr.split('-');
+            const date = new Date(y, m - 1, d);
+            date.setHours(23, 59, 59, 999); // End of that day
+            return date < new Date();
+        }
+
+        // Init
+        document.addEventListener('DOMContentLoaded', () => {
+            initFirebase();
+            
+            // Force Sync button listener
+            document.getElementById('btn-sync').addEventListener('click', () => {
+                showToast("Sincronizando...", "info");
+                setupDataListeners();
+            });
+        });
+
+    </script>
+</body>
+</html>
